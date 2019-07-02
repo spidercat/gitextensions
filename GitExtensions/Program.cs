@@ -9,8 +9,10 @@ using GitExtUtils.GitUI;
 using GitUI;
 using GitUI.CommandsDialogs.SettingsDialog;
 using GitUI.CommandsDialogs.SettingsDialog.Pages;
+using GitUI.Infrastructure.Telemetry;
 using JetBrains.Annotations;
 using Microsoft.VisualStudio.Threading;
+using ResourceManager;
 
 namespace GitExtensions
 {
@@ -29,6 +31,8 @@ namespace GitExtensions
 
             try
             {
+                DiagnosticsClient.Initialize(ThisAssembly.Git.IsDirty);
+
                 if (!Debugger.IsAttached)
                 {
                     AppDomain.CurrentDomain.UnhandledException += (s, e) => ReportBug((Exception)e.ExceptionObject);
@@ -67,6 +71,9 @@ namespace GitExtensions
             }
 
             AppSettings.LoadSettings();
+
+            new AppStartDiagnosticsReporter().Report();
+
             if (EnvUtils.RunningOnWindows())
             {
                 WebBrowserEmulationMode.SetBrowserFeatureControl();
@@ -79,6 +86,13 @@ namespace GitExtensions
                 {
                     formChoose.ShowDialog();
                 }
+            }
+
+            if (!AppSettings.TelemetryEnabled.HasValue)
+            {
+                AppSettings.TelemetryEnabled = MessageBox.Show(null, Strings.TelemetryPersmissionMessage,
+                                                               Strings.TelemetryPersmissionCaption, MessageBoxButtons.YesNo,
+                                                               MessageBoxIcon.Question) == DialogResult.Yes;
             }
 
             try

@@ -82,7 +82,8 @@ namespace GitUI.CommandsDialogs
             this.revisionGpgInfo1 = new GitUI.CommandsDialogs.RevisionGpgInfoControl();
             this.FilterToolTip = new System.Windows.Forms.ToolTip(this.components);
             this.statusStrip = new System.Windows.Forms.StatusStrip();
-            this.closeStatusBarItem = new System.Windows.Forms.ToolStripStatusLabel();
+            this.tsslblTelemetryEnabled = new System.Windows.Forms.ToolStripStatusLabel();
+            this.tsslblSpacer = new System.Windows.Forms.ToolStripStatusLabel();
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.initNewRepositoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -840,20 +841,29 @@ namespace GitUI.CommandsDialogs
             // 
             this.statusStrip.BackColor = System.Drawing.SystemColors.Control;
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.closeStatusBarItem});
-            this.statusStrip.Location = new System.Drawing.Point(0, 551);
+            this.tsslblTelemetryEnabled,
+            this.tsslblSpacer});
             this.statusStrip.Name = "statusStrip";
             this.statusStrip.Padding = new System.Windows.Forms.Padding(0);
-            this.statusStrip.RightToLeft = System.Windows.Forms.RightToLeft.Yes;
             this.statusStrip.Size = new System.Drawing.Size(923, 22);
+            this.statusStrip.ShowItemToolTips = true;
             this.statusStrip.TabIndex = 4;
             // 
-            // closeStatusBarItem
+            // tsslblTelemetryEnabled
             // 
-            this.closeStatusBarItem.Name = "closeStatusBarItem";
-            this.closeStatusBarItem.Size = new System.Drawing.Size(14, 17);
-            this.closeStatusBarItem.Image = global::GitUI.Properties.Images.CloseStatusBar;
-            this.closeStatusBarItem.Click += new System.EventHandler(this.toolStripStatusLabel1_Click);
+            this.tsslblTelemetryEnabled.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
+            this.tsslblTelemetryEnabled.Image = global::GitUI.Properties.Images.EyeOpened;
+            this.tsslblTelemetryEnabled.Name = "tsslblTelemetryEnabled";
+            this.tsslblTelemetryEnabled.Size = new System.Drawing.Size(183, 29);
+            this.tsslblTelemetryEnabled.Text = "Telemetry enabled";
+            this.tsslblTelemetryEnabled.ToolTipText = "Allow to capture telemetry information on/off";
+            this.tsslblTelemetryEnabled.Click += new System.EventHandler(this.TsslblTelemetryEnabled_Click);
+            // 
+            // tsslblSpacer
+            // 
+            this.tsslblSpacer.Name = "tsslblSpacer";
+            this.tsslblSpacer.Size = new System.Drawing.Size(1155, 29);
+            this.tsslblSpacer.Spring = true;
             // 
             // fileToolStripMenuItem
             // 
@@ -1785,7 +1795,7 @@ namespace GitUI.CommandsDialogs
 
         #endregion
 
-        private SplitContainer MainSplitContainer;
+        internal SplitContainer MainSplitContainer;
         private SplitContainer RightSplitContainer;
         private SplitContainer RevisionsSplitContainer;
 
@@ -1832,7 +1842,6 @@ namespace GitUI.CommandsDialogs
         private ToolStripComboBox toolStripBranchFilterComboBox;
         private ToolStripDropDownButton toolStripBranchFilterDropDownButton;
         private ToolStripDropDownButton toolStripRevisionFilterDropDownButton;
-        private ToolStripStatusLabel closeStatusBarItem;
         private ToolStripSplitButton branchSelect;
         private ToolStripButton toggleBranchTreePanel;
         private ToolStripButton toggleSplitViewLayout;
@@ -1954,5 +1963,7 @@ namespace GitUI.CommandsDialogs
         private ToolStripMenuItem commitInfoBelowMenuItem;
         private ToolStripMenuItem commitInfoLeftwardMenuItem;
         private ToolStripMenuItem commitInfoRightwardMenuItem;
+        private ToolStripStatusLabel tsslblTelemetryEnabled;
+        private ToolStripStatusLabel tsslblSpacer;
     }
 }

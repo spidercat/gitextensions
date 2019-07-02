@@ -24,6 +24,7 @@ using GitUI.CommandsDialogs.BrowseDialog;
 using GitUI.CommandsDialogs.BrowseDialog.DashboardControl;
 using GitUI.CommandsDialogs.WorktreeDialog;
 using GitUI.Hotkey;
+using GitUI.Infrastructure.Telemetry;
 using GitUI.Properties;
 using GitUI.Script;
 using GitUI.UserControls;
@@ -85,6 +86,10 @@ namespace GitUI.CommandsDialogs
 
         private readonly TranslationString _undoLastCommitText = new TranslationString("You will still be able to find all the commit's changes in the staging area\n\nDo you want to continue?");
         private readonly TranslationString _undoLastCommitCaption = new TranslationString("Undo last commit");
+
+        private readonly TranslationString _telemetryCaptured = new TranslationString("Telemetry captured");
+        private readonly TranslationString _telemetryDisabled = new TranslationString("Telemetry disabled");
+
         #endregion
 
         private readonly SplitterManager _splitterManager = new SplitterManager(new AppSettingsPath("FormBrowse"));
@@ -99,7 +104,7 @@ namespace GitUI.CommandsDialogs
         [CanBeNull] private readonly IAheadBehindDataProvider _aheadBehindDataProvider;
         private readonly WindowsJumpListManager _windowsJumpListManager;
         private readonly SubmoduleStatusProvider _submoduleStatusProvider;
-
+        private readonly FormBrowseDiagnosticsReporter _formBrowseDiagnosticsReporter;
         [CanBeNull] private BuildReportTabPageExtension _buildReportTabPageExtension;
         private ConEmuControl _terminal;
         private Dashboard _dashboard;
@@ -136,6 +141,10 @@ namespace GitUI.CommandsDialogs
             translateToolStripMenuItem.Image = light ? Images.Translate : Images.Translate_inv;
             recoverLostObjectsToolStripMenuItem.Image = light ? Images.RecoverLostObjects : Images.RecoverLostObjects_inv;
             branchSelect.Image = light ? Resources.branch : Resources.branch_inv;
+
+            UpdateTelemetryState();
+
+            _formBrowseDiagnosticsReporter = new FormBrowseDiagnosticsReporter(this);
 
             commandsToolStripMenuItem.DropDownOpening += CommandsToolStripMenuItem_DropDownOpening;
 
@@ -522,6 +531,8 @@ namespace GitUI.CommandsDialogs
             toolStripButtonPush.Initialize(_aheadBehindDataProvider);
             toolStripButtonPush.DisplayAheadBehindInformation(Module.GetSelectedBranch());
 
+            _formBrowseDiagnosticsReporter.Report();
+
             base.OnLoad(e);
         }
 
@@ -599,6 +610,7 @@ namespace GitUI.CommandsDialogs
             this.InvokeAsync(RefreshRevisions).FileAndForget();
             UpdateSubmodulesStructure();
             UpdateStashCount();
+            UpdateTelemetryState();
         }
 
         private void RefreshRevisions()
@@ -656,6 +668,8 @@ namespace GitUI.CommandsDialogs
             _dashboard.RefreshContent();
             _dashboard.Visible = true;
             _dashboard.BringToFront();
+
+            DiagnosticsClient.TrackPageView("Dashboard");
         }
 
         private void HideDashboard()
@@ -673,6 +687,8 @@ namespace GitUI.CommandsDialogs
             toolPanel.LeftToolStripPanelVisible = true;
             toolPanel.RightToolStripPanelVisible = true;
             toolPanel.ResumeLayout();
+
+            DiagnosticsClient.TrackPageView("Revision graph");
         }
 
         private void UpdatePluginMenu(bool validWorkingDir)
@@ -1030,17 +1046,6 @@ namespace GitUI.CommandsDialogs
                             _warning = null;
                         }
                     }
-
-                    // Only show status strip when there are status items on it.
-                    // There is always a close (x) button, do not count first item.
-                    if (statusStrip.Items.Count > 1)
-                    {
-                        statusStrip.Show();
-                    }
-                    else
-                    {
-                        statusStrip.Hide();
-                    }
                 }).FileAndForget();
             }
         }
@@ -1066,6 +1071,13 @@ namespace GitUI.CommandsDialogs
             {
                 toolStripSplitStash.Text = string.Empty;
             }
+        }
+
+        private void UpdateTelemetryState()
+        {
+            var telemetryEnabled = AppSettings.TelemetryEnabled ?? false;
+            tsslblTelemetryEnabled.Text = telemetryEnabled ? _telemetryCaptured.Text : _telemetryDisabled.Text;
+            tsslblTelemetryEnabled.Image = telemetryEnabled ? Images.EyeOpened : Images.EyeClosed;
         }
 
         #region Working directory combo box
@@ -1318,12 +1330,6 @@ namespace GitUI.CommandsDialogs
         private void PushToolStripMenuItemClick(object sender, EventArgs e)
         {
             UICommands.StartPushDialog(this, pushOnShow: ModifierKeys.HasFlag(Keys.Shift));
-        }
-
-        private void RefreshStatus()
-        {
-            UpdateSubmodulesStructure();
-            UpdateStashCount();
         }
 
         private void RefreshToolStripMenuItemClick(object sender, EventArgs e)
@@ -2017,11 +2023,6 @@ namespace GitUI.CommandsDialogs
             }
         }
 
-        private void toolStripStatusLabel1_Click(object sender, EventArgs e)
-        {
-            statusStrip.Hide();
-        }
-
         private void BisectClick(object sender, EventArgs e)
         {
             using (var frm = new FormBisect(RevisionGrid))
@@ -2385,8 +2386,6 @@ namespace GitUI.CommandsDialogs
             revisionDiff.InitSplitterManager(_splitterManager);
             fileTree.InitSplitterManager(_splitterManager);
 
-            // hide status in order to restore splitters against the full height (the most common case)
-            statusStrip.Hide();
             _splitterManager.RestoreSplitters();
             RefreshLayoutToggleButtonStates();
         }
@@ -3023,12 +3022,18 @@ namespace GitUI.CommandsDialogs
         private void toggleSplitViewLayout_Click(object sender, EventArgs e)
         {
             AppSettings.ShowSplitViewLayout = !AppSettings.ShowSplitViewLayout;
+            DiagnosticsClient.TrackEvent("Layout change",
+                new Dictionary<string, string> { { nameof(AppSettings.ShowSplitViewLayout), AppSettings.ShowSplitViewLayout.ToString() } });
+
             RefreshSplitViewLayout();
         }
 
         private void toggleBranchTreePanel_Click(object sender, EventArgs e)
         {
             MainSplitContainer.Panel1Collapsed = !MainSplitContainer.Panel1Collapsed;
+            DiagnosticsClient.TrackEvent("Layout change",
+                new Dictionary<string, string> { { "ShowLeftPanel", MainSplitContainer.Panel1Collapsed.ToString() } });
+
             RefreshLayoutToggleButtonStates();
         }
 
@@ -3054,6 +3059,9 @@ namespace GitUI.CommandsDialogs
         private void SetCommitInfoPosition(CommitInfoPosition position)
         {
             AppSettings.CommitInfoPosition = position;
+            DiagnosticsClient.TrackEvent("Layout change",
+                new Dictionary<string, string> { { nameof(AppSettings.CommitInfoPosition), AppSettings.CommitInfoPosition.ToString() } });
+
             LayoutRevisionInfo();
             RefreshLayoutToggleButtonStates();
         }
@@ -3061,6 +3069,9 @@ namespace GitUI.CommandsDialogs
         private void RefreshSplitViewLayout()
         {
             RightSplitContainer.Panel2Collapsed = !AppSettings.ShowSplitViewLayout;
+            DiagnosticsClient.TrackEvent("Layout change",
+                new Dictionary<string, string> { { nameof(AppSettings.ShowSplitViewLayout), AppSettings.ShowSplitViewLayout.ToString() } });
+
             RefreshLayoutToggleButtonStates();
         }
 
@@ -3230,6 +3241,24 @@ namespace GitUI.CommandsDialogs
                 || e.Data.GetDataPresent(DataFormats.UnicodeText))
             {
                 e.Effect = DragDropEffects.Move;
+            }
+        }
+
+        private void TsslblTelemetryEnabled_Click(object sender, EventArgs e)
+        {
+            // seems like it is possible to click multiple times before a dialog is shown,
+            // and cause a chain of dialogs one after another
+            // prevent this by unwiring and rewiring the handler
+
+            try
+            {
+                tsslblTelemetryEnabled.Click -= TsslblTelemetryEnabled_Click;
+
+                UICommands.StartGeneralSettingsDialog(this);
+            }
+            finally
+            {
+                tsslblTelemetryEnabled.Click += TsslblTelemetryEnabled_Click;
             }
         }
     }
